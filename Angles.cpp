@@ -34,6 +34,7 @@ int main(int argc, char *argv[]) {
       ("n,iterations", "Max number of iterations to generate angle distribution", cxxopts::value<string>()->default_value("100"))
       ("m,matcher", "Path to matcher file", cxxopts::value<string>()->default_value(matcher_path))
       ("d,detector", "Detector(s) - give multiple detectors with ',' as separator, e.g. '-d U1,U2,U3'", cxxopts::value<vector<string>>())
+      ("a,properangles", "Use if one wishes to get the proper angles with respect to beam source not target center, can take two values 'y' or 'n' ", cxxopts::value<string>()->default_value("Default is 'n'"))
       ("h,help", "Print usage")
       ("v,version", "Print version")
   ;
@@ -51,6 +52,10 @@ int main(int argc, char *argv[]) {
          << "Try running " << argv[0] << " -h" << endl;
     exit(-1);
   }
+
+
+
+
   setup_path = result.count("setup") ? result["setup"].as<string>() : setup_path;
   target_path = result.count("target") ? result["target"].as<string>() : target_path;
   matcher_path = result.count("matcher") ? result["matcher"].as<string>() : matcher_path;
@@ -77,8 +82,24 @@ int main(int argc, char *argv[]) {
   TVector3 center(xlocation,ylocation,-0.3);
 
   TVector3 origin = center + (target.getThickness()/2. - implantation_depth)*target.getNormal();
-  TVector3 ori = target.getCenter() + (target.getThickness()/2. - implantation_depth)*target.getNormal();
   
+  TVector3 ori = target.getCenter() + (target.getThickness()/2. - implantation_depth)*target.getNormal();
+
+  string proper_angles = result.count("properangles") ?
+      result["properangles"].as<string>() : "n";
+  if (proper_angles!="n"){
+    if (proper_angles=="y"){
+      ori = origin;
+    }
+    else{
+      cout << "The call 'properangles' (-a) received a nonviable call" << endl
+      << " Only 'n' or 'y' is accepted" << endl;
+    exit(-1);
+    }
+  } 
+
+
+
   int n = result.count("iterations") ?
       stod(result["iterations"].as<string>()) : 100;
 
@@ -195,10 +216,10 @@ int main(int argc, char *argv[]) {
             double relative_solid = solid/max_solid; //gives the relative size of the solid angle 
             double N = floor(n * relative_solid); //number of hits relative to the most prominent pixel
             for (int k=0; k<N; k++){//we loop over each "hit"
-                TVector3 pos = detptr->getUniformPixelPosition(i, j);
+                TVector3 pos = detptr->getUniformPixelPosition(i+1, j+1);
                 TVector3 dir = (pos-ori).Unit();
                 auto angle = dir.Angle(-detptr->getNormal());
-                cout << i+1 << "\t" << j+1 << "\t" << angle << "\t" << N << "\t" << solid << "\t" << pos.X() << "\t" << pos.Y() << "\t" << pos.Z() << endl;
+                cout << i+1 << "\t" << j+1 << "\t" << angle << "\t" << N << endl;
             }//for k in range(N)
         }//for front index
     }//for back index
